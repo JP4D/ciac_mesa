@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Furnas - Mesa Interativa</title>
+    <link rel="stylesheet" href="{% static 'app/css/kiosk.css' %}">
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>A carregar modelo...</p>
+    </div>
+
+    <div id="header">
+        <div class="subtitle">Plano de Ordenamento</div>
+        <div class="title">Bacia Hidrográfica das Furnas</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div class="connection-line" id="connection-line"></div>
+    <div class="vertical-line-up" id="vertical-line-up"></div>
+    <div class="vertical-line-down" id="vertical-line-down"></div>
+
+    <nav id="main-menu"></nav>
+
+    <div id="content-panel">
+        <div class="content-top">
+            <div class="content-header">
+                <div class="diamond"></div>
+                <h2 class="content-title" id="content-title"></h2>
+            </div>
+            <button class="close-btn" id="close-btn" aria-label="Fechar"></button>
+        </div>
+        <div class="content-tabs" id="content-tabs"></div>
+        <div class="content-area">
+            <aside class="content-subnav hidden" id="content-subnav"></aside>
+            <div class="content-body" id="content-body"></div>
+            <div class="content-images" id="content-images"></div>
+        </div>
+    </div>
+
+    {{ sections|json_script:"app-data" }}
+    <script>
+        window.APP_MODEL_URL = "{{ model_url }}";
+    </script>
+    <script src="{% static 'app/vendor/three/three.min.js' %}"></script>
+    <script src="{% static 'app/vendor/three/GLTFLoader.js' %}"></script>
+    <script src="{% static 'app/vendor/three/OrbitControls.js' %}"></script>
+    <script src="{% static 'app/js/frontend.js' %}"></script>
+</body>
+</html>

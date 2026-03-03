@@ -32,6 +32,8 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'baton',
+    'adminsortable2',
+    'django_ckeditor_5',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,6 +46,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -56,7 +59,7 @@ ROOT_URLCONF = 'mesa_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -104,7 +107,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-pt'
+
+LANGUAGES = [
+    ('pt-pt', 'Portugues'),
+    ('en', 'English'),
+]
 
 TIME_ZONE = 'UTC'
 
@@ -117,6 +125,70 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Baton 5 expects BATON to exist, even if empty.
-BATON = {}
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Baton admin customization.
+BATON = {
+    "SITE_TITLE": "MESA Admin",
+    "MENU_TITLE": "Conteúdos",
+    "MENU": [
+        {
+            "type": "title",
+            "label": "Estrutura",
+            # Baton renders top-level icons as Material Symbols names.
+            "icon": "account_tree",
+            "default_open": True,
+            "children": [
+                {
+                    "type": "model",
+                    "name": "category",
+                    "app": "app",
+                    "label": "Secções",
+                    "icon": "fa fa-folder-open",
+                },
+                {
+                    "type": "model",
+                    "name": "subcategory",
+                    "app": "app",
+                    "label": "Categorias",
+                    "icon": "fa fa-folder",
+                },
+                {
+                    "type": "model",
+                    "name": "contentsection",
+                    "app": "app",
+                    "label": "Conteúdos",
+                    "icon": "fa fa-file-text-o",
+                },
+            ],
+        }
+    ],
+}
+
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'language': 'pt',
+        'toolbar': [
+            'heading',
+            '|',
+            'bold',
+            'italic',
+            'underline',
+            'link',
+            '|',
+            'bulletedList',
+            'numberedList',
+            '|',
+            'outdent',
+            'indent',
+            '|',
+            'undo',
+            'redo',
+        ],
+    },
+}
+
+CKEDITOR_5_USER_LANGUAGE = False
