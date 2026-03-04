@@ -355,6 +355,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Allow import when data already exists (dangerous).",
+        )
+        parser.add_argument(
             "--text-file",
             default=str(Path(settings.BASE_DIR).parent / "data" / "conteudo_text_only.txt"),
             help="Path to plain text source file. Used when available.",
@@ -383,11 +388,26 @@ class Command(BaseCommand):
         text_file_path = Path(options["text_file"]).expanduser().resolve()
         docx_path = Path(options["docx"]).expanduser().resolve()
         images_root = Path(options["images_root"]).expanduser().resolve()
+        force = options["force"]
 
         if not text_file_path.exists() and not docx_path.exists():
             raise CommandError(f"DOCX file not found: {docx_path}")
         if not images_root.exists():
             raise CommandError(f"Images root not found: {images_root}")
+
+        existing_counts = {
+            "categories": Category.objects.count(),
+            "subcategories": SubCategory.objects.count(),
+            "sections": ContentSection.objects.count(),
+            "media": Media.objects.count(),
+        }
+        has_existing_data = any(existing_counts.values())
+        if has_existing_data and not force:
+            raise CommandError(
+                "Import blocked to protect manual edits. Existing data found: "
+                f"{existing_counts}. "
+                "If you intentionally want to run this importer, rerun with --force."
+            )
 
         if options["reset"]:
             self.stdout.write("Reset flag enabled: deleting existing content data...")

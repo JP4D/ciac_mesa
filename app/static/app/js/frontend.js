@@ -183,6 +183,10 @@
 
   function resolveDisplayNode(node) {
     if (!node) return null;
+    // Keep this node visible as a project hub even if it has no own body/media.
+    if (node.slug === "parceiros-e-projetos") {
+      return node;
+    }
     if (hasRenderableText(node.content) || hasRenderableMedia(node.media)) {
       return node;
     }
@@ -194,7 +198,46 @@
   }
 
   function updateBody(contentItem) {
+    if (contentItem.slug === "parceiros-e-projetos" && (contentItem.children || []).length) {
+      contentArea.classList.add("project-grid");
+      contentArea.classList.remove("images-only");
+      contentBody.classList.remove("hidden");
+      contentImages.classList.add("hidden");
+      contentImages.innerHTML = "";
+      contentBody.innerHTML = `
+        <div class="projects-grid">
+          ${(contentItem.children || [])
+            .map((child) => {
+              const cover = (child.media || []).find((m) => m.url);
+              return `
+                <button class="project-card" data-project-id="${child.id}">
+                  ${
+                    cover
+                      ? `<img src="${cover.url}" alt="${sectionLabel(child)}">`
+                      : `<div class="project-card-placeholder"></div>`
+                  }
+                  <div class="project-card-title">${sectionLabel(child)}</div>
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+      `;
+
+      contentBody.querySelectorAll(".project-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const targetId = Number(card.dataset.projectId);
+          const target = (contentItem.children || []).find((child) => child.id === targetId);
+          if (!target) return;
+          updateBody(target);
+        });
+      });
+      return;
+    }
+
+    contentArea.classList.remove("project-grid");
     const html = contentItem.content || "";
+    const itemTitle = sectionLabel(contentItem);
     const fallback = html
       .split("\n")
       .filter(Boolean)
@@ -203,12 +246,19 @@
     const hasText = hasRenderableText(html);
 
     if (hasText) {
-      contentBody.innerHTML = html.includes("<") ? html : fallback;
+      const bodyHtml = html.includes("<") ? html : fallback;
+      contentBody.innerHTML = `
+        <h3 class="content-item-title">${itemTitle}</h3>
+        ${bodyHtml}
+      `;
       contentBody.classList.remove("hidden");
     } else {
-      contentBody.innerHTML = "";
-      contentBody.classList.add("hidden");
+      contentBody.innerHTML = `
+        <h3 class="content-item-title">${itemTitle}</h3>
+      `;
+      contentBody.classList.remove("hidden");
     }
+    contentImages.classList.remove("hidden");
 
     updateMedia(contentItem.media, !hasText);
   }
@@ -221,6 +271,14 @@
   }
 
   function renderSubnav(rootNode) {
+    // For 3.3.4.1 we show projects as grid cards, not in the side subnav.
+    if (rootNode && rootNode.slug === "parceiros-e-projetos") {
+      contentSubnav.classList.remove("hidden");
+      contentArea.classList.add("has-subnav");
+      contentSubnav.innerHTML = "";
+      return { setActive: () => {} };
+    }
+
     const treeRows = [];
     flattenTree(rootNode.children || [], 0, treeRows);
     if (!treeRows.length) {

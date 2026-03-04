@@ -134,6 +134,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 BATON = {
     "SITE_TITLE": "MESA Admin",
     "MENU_TITLE": "Conteúdos",
+    "ENABLE_IMAGES_PREVIEW": False,
     "MENU": [
         {
             "type": "title",
