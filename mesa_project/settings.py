@@ -138,8 +138,7 @@ BATON = {
     "MENU": [
         {
             "type": "title",
-            "label": "Estrutura",
-            # Baton renders top-level icons as Material Symbols names.
+            "label": "MESA POBHLF",
             "icon": "account_tree",
             "default_open": True,
             "children": [
@@ -165,7 +164,22 @@ BATON = {
                     "icon": "fa fa-file-text-o",
                 },
             ],
-        }
+        },
+        {
+            "type": "title",
+            "label": "GEOPARQUES",
+            "icon": "public",
+            "default_open": True,
+            "children": [
+                {
+                    "type": "model",
+                    "name": "geopark",
+                    "app": "app",
+                    "label": "Geoparques",
+                    "icon": "fa fa-globe",
+                },
+            ],
+        },
     ],
 }
 

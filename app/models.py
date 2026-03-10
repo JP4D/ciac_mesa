@@ -225,3 +225,52 @@ class MapComparison(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class Geopark(models.Model):
+    """UNESCO Global Geopark entry for the world-map app."""
+
+    name = models.CharField("Nome", max_length=300)
+    name_en = models.CharField("Nome (EN)", max_length=300, blank=True)
+    latitude = models.DecimalField("Latitude", max_digits=10, decimal_places=6)
+    longitude = models.DecimalField("Longitude", max_digits=10, decimal_places=6)
+    date_added = models.DateField("Data de adesão", null=True, blank=True)
+    description_pt = models.TextField("Introdução (PT)", blank=True)
+    description_en = models.TextField("Introduction (EN)", blank=True)
+    quote_pt = models.CharField("Frase (PT)", max_length=500, blank=True)
+    quote_en = models.CharField("Quote (EN)", max_length=500, blank=True)
+    area_km2 = models.FloatField("Área (km²)", null=True, blank=True)
+    population = models.IntegerField("População", null=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Geoparque"
+        verbose_name_plural = "Geoparques"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class MapAreaInfo(models.Model):
+    """Popup data for interactive map overlays bound to a content entry."""
+
+    content = models.ForeignKey(
+        ContentSection,
+        on_delete=models.CASCADE,
+        related_name="map_areas",
+        verbose_name="Conteúdo",
+    )
+    area_index = models.PositiveIntegerField("Indice da área (SVG)", default=0)
+    legend_order = models.PositiveIntegerField("Ordem da legenda", default=0)
+    title = models.CharField("Designação", max_length=255)
+    location = models.CharField("Local", max_length=255, blank=True)
+    area_ha = models.DecimalField("Area (ha)", max_digits=12, decimal_places=9, null=True, blank=True)
+    fill_color = models.CharField("Cor da área", max_length=32, blank=True, help_text="Hex/RGBA (ex: #34a853)")
+
+    class Meta:
+        ordering = ["legend_order", "id"]
+        verbose_name = "Área do mapa"
+        verbose_name_plural = "Mapa Aquisição"
+
+    def __str__(self) -> str:
+        return self.title
