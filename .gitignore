@@ -49,3 +49,13 @@ htmlcov/
 *.swp
 *.swo
 .DS_Store
+
+# Large local-only files
+app/static/app/models/*.glb
+app/static/app/models/*.gltf
+
+# Scratch / local notes
+TODO.TXT
+summary.md
+"db.sqlite3 copy"
+db.sqlite3\ copy
