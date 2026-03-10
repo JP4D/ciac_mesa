@@ -1,7 +1,7 @@
 from django import forms
 from django_ckeditor_5.widgets import CKEditor5Widget
 
-from .models import ContentSection
+from .models import ContentSection, MapAreaInfo
 
 
 class ContentSectionAdminForm(forms.ModelForm):
@@ -11,4 +11,13 @@ class ContentSectionAdminForm(forms.ModelForm):
         widgets = {
             "content": CKEditor5Widget(config_name="default"),
             "content_en": CKEditor5Widget(config_name="default"),
+        }
+
+
+class MapAreaInfoAdminForm(forms.ModelForm):
+    class Meta:
+        model = MapAreaInfo
+        fields = "__all__"
+        widgets = {
+            "legend_order": forms.HiddenInput(),
         }
