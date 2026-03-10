@@ -3,11 +3,21 @@ from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, Sortable
 from django.db.models import Case, F, IntegerField, Value, When
 from django.db.models.functions import Coalesce
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import path, reverse
+from django.http import HttpResponseRedirect
+from django.template.response import TemplateResponse
 from urllib.parse import urlencode
 
 from .forms import ContentSectionAdminForm, MapAreaInfoAdminForm
 from .models import Category, ContentSection, Geopark, MapAreaInfo, MapComparison, Media, SubCategory
+from .management.commands.import_geoparks import (
+    _load_xlsx, _load_csv, _parse_coords, _parse_date,
+    _safe_float, _safe_int, HEADER_MAP,
+)
+
+admin.site.site_header  = "POBHLF"
+admin.site.site_title   = "POBHLF Admin"
+admin.site.index_title  = "Gestor de Conteúdos"
 
 
 class MediaInline(SortableInlineAdminMixin, admin.TabularInline):
@@ -174,11 +184,107 @@ class GeoparkAdmin(admin.ModelAdmin):
     search_fields = ("name", "name_en")
     list_filter = ("date_added",)
     ordering = ("name",)
+    change_list_template = "admin/app/geopark/change_list.html"
     fieldsets = (
         ("Identificação", {"fields": ("name", "name_en", "date_added")}),
         ("Localização", {"fields": ("latitude", "longitude", "area_km2", "population")}),
         ("Descrição", {"fields": ("description_pt", "description_en", "quote_pt", "quote_en")}),
     )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path("import/", self.admin_site.admin_view(self.import_view), name="app_geopark_import"),
+        ]
+        return custom + urls
+
+    def import_view(self, request):
+        result = None
+
+        if request.method == "POST":
+            upload = request.FILES.get("import_file")
+            force = bool(request.POST.get("force"))
+
+            if not upload:
+                result = {"error": "Nenhum ficheiro enviado."}
+            else:
+                import tempfile, os
+                from pathlib import Path
+                suffix = Path(upload.name).suffix.lower()
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                        for chunk in upload.chunks():
+                            tmp.write(chunk)
+                        tmp_path = Path(tmp.name)
+
+                    if suffix in (".xlsx", ".xlsm", ".xls"):
+                        headers, rows = _load_xlsx(tmp_path)
+                    elif suffix == ".csv":
+                        headers, rows = _load_csv(tmp_path)
+                    else:
+                        result = {"error": f"Formato não suportado: {suffix}"}
+                        headers = None
+
+                    if headers is not None:
+                        col_map = {}
+                        for idx, h in enumerate(headers):
+                            key = HEADER_MAP.get(h.lower())
+                            if key:
+                                col_map[key] = idx
+
+                        created = updated = skipped = 0
+                        for row in rows:
+                            name = str(row[col_map["name"]]).strip() if "name" in col_map and row[col_map["name"]] else ""
+                            if not name:
+                                continue
+                            coords = _parse_coords(row[col_map["coords"]] if "coords" in col_map else None)
+                            if not coords:
+                                skipped += 1
+                                continue
+                            lat, lon = coords
+                            defaults = {
+                                "latitude": lat,
+                                "longitude": lon,
+                                "name_en": str(row[col_map["name_en"]]).strip() if "name_en" in col_map and row[col_map["name_en"]] else "",
+                                "date_added": _parse_date(row[col_map["date_added"]]) if "date_added" in col_map else None,
+                                "description_pt": str(row[col_map["description_pt"]]).strip() if "description_pt" in col_map and row[col_map["description_pt"]] else "",
+                                "description_en": str(row[col_map["description_en"]]).strip() if "description_en" in col_map and row[col_map["description_en"]] else "",
+                                "quote_pt": str(row[col_map["quote_pt"]]).strip() if "quote_pt" in col_map and row[col_map["quote_pt"]] else "",
+                                "quote_en": str(row[col_map["quote_en"]]).strip() if "quote_en" in col_map and row[col_map["quote_en"]] else "",
+                                "area_km2": _safe_float(row[col_map["area_km2"]] if "area_km2" in col_map else None),
+                                "population": _safe_int(row[col_map["population"]] if "population" in col_map else None),
+                            }
+                            existing = Geopark.objects.filter(name__iexact=name).first()
+                            if existing:
+                                if force:
+                                    for field, value in defaults.items():
+                                        setattr(existing, field, value)
+                                    existing.save()
+                                    updated += 1
+                                else:
+                                    skipped += 1
+                            else:
+                                Geopark.objects.create(name=name, **defaults)
+                                created += 1
+
+                        result = {"created": created, "updated": updated, "skipped": skipped}
+
+                except Exception as exc:
+                    result = {"error": str(exc)}
+                finally:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Importar Geoparques",
+            "result": result,
+            "force_default": True,  # "Replace existing" ticked by default
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(request, "admin/app/geopark/import.html", context)
 
 
 @admin.register(MapAreaInfo)

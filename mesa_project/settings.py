@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'baton',
     'adminsortable2',
     'django_ckeditor_5',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -130,9 +132,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# CORS — allow the GEOPARQUES web app to call the API from any local origin.
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_URLS_REGEX = r'^/api/.*$'
+
 # Baton admin customization.
 BATON = {
-    "SITE_TITLE": "MESA Admin",
+    "SITE_HEADER": "POBHLF",
+    "SITE_TITLE": "POBHLF Admin",
+    "INDEX_TITLE": "Gestor de Conteúdos",
     "MENU_TITLE": "Conteúdos",
     "ENABLE_IMAGES_PREVIEW": False,
     "MENU": [
@@ -162,6 +170,12 @@ BATON = {
                     "app": "app",
                     "label": "Conteúdos",
                     "icon": "fa fa-file-text-o",
+                },
+                {
+                    "type": "free",
+                    "label": "Mapa Aquisição",
+                    "url": "/admin/app/mapareainfo/",
+                    "icon": "fa fa-map-marker",
                 },
             ],
         },

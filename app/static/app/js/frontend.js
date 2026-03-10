@@ -14,12 +14,499 @@
   const connectionLine = document.getElementById("connection-line");
   const verticalLineUp = document.getElementById("vertical-line-up");
   const verticalLineDown = document.getElementById("vertical-line-down");
+  const INTERACTIVE_MAP_SLUG = "aquisicao-de-terrenos";
+  const INTERACTIVE_MAP_CONFIG = {
+    svgUrl: "/static/app/maps/furnas_svg.svg",
+    // Background image aligned inside SVG frame rect.
+    baseImageUrl: "/static/app/maps/furnas_map_sample.png?v=2",
+    // Temporary helper while mapping DB rows to SVG areas.
+    showAreaIndexLabels: false,
+    // Customize colors/content by SVG path index (0-based, excluding the outer frame rect).
+    areas: {
+      0: { title: "Área 1", color: "rgba(245, 99, 132, 0.35)", popup: "Detalhes desta área." },
+      1: { title: "Área 2", color: "rgba(54, 162, 235, 0.35)", popup: "Detalhes desta área." },
+      2: { title: "Área 3", color: "rgba(75, 192, 192, 0.35)", popup: "Detalhes desta área." },
+      3: { title: "Área 4", color: "rgba(255, 206, 86, 0.35)", popup: "Detalhes desta área." },
+      4: { title: "Área 5", color: "rgba(153, 102, 255, 0.35)", popup: "Detalhes desta área." },
+      5: { title: "Área 6", color: "rgba(255, 159, 64, 0.35)", popup: "Detalhes desta área." },
+      6: { title: "Área 7", color: "rgba(46, 204, 113, 0.35)", popup: "Detalhes desta área." },
+      7: { title: "Área 8", color: "rgba(26, 188, 156, 0.35)", popup: "Detalhes desta área." },
+      8: { title: "Área 9", color: "rgba(231, 76, 60, 0.35)", popup: "Detalhes desta área." },
+      9: { title: "Área 10", color: "rgba(52, 152, 219, 0.35)", popup: "Detalhes desta área." },
+    },
+    defaultColor: "rgba(248, 153, 44, 0.25)",
+    defaultStroke: "rgba(248, 153, 44, 0.9)",
+  };
 
   let activeSectionSlug = null;
+  let interactiveMapState = {
+    modal: null,
+    stage: null,
+    canvas: null,
+    legend: null,
+    title: null,
+    popup: null,
+    closeBtn: null,
+    lastSvgUrl: null,
+    lastImageUrl: null,
+    lastContentId: null,
+    areaElementsByIndex: {},
+    activeAreaIndex: null,
+    activateAreaByIndex: null,
+  };
 
   function sectionLabel(section) {
     const label = section.title || section.slug;
     return label.replace(/^\d+(\.\d+)?\s*-\s*/g, "");
+  }
+
+  function shouldShowInteractiveMap(contentItem) {
+    return contentItem && contentItem.slug === INTERACTIVE_MAP_SLUG;
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatAreaHa(value) {
+    if (value === null || value === undefined || value === "") return "";
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return String(value);
+    return `${numeric.toLocaleString("pt-PT", { maximumFractionDigits: 9 })} ha`;
+  }
+
+  function buildDbPopupText(mapArea) {
+    if (!mapArea) return "";
+    const lines = [];
+    if (mapArea.location) lines.push(`Local: ${mapArea.location}`);
+    if (mapArea.area_ha !== "") lines.push(`Área: ${formatAreaHa(mapArea.area_ha)}`);
+    return lines.join("\n");
+  }
+
+  function defaultAreaColor(index) {
+    const palette = [
+      "rgba(245, 99, 132, 0.35)",
+      "rgba(54, 162, 235, 0.35)",
+      "rgba(75, 192, 192, 0.35)",
+      "rgba(255, 206, 86, 0.35)",
+      "rgba(153, 102, 255, 0.35)",
+      "rgba(255, 159, 64, 0.35)",
+      "rgba(46, 204, 113, 0.35)",
+      "rgba(26, 188, 156, 0.35)",
+      "rgba(231, 76, 60, 0.35)",
+      "rgba(52, 152, 219, 0.35)",
+    ];
+    return palette[index % palette.length];
+  }
+
+  function toActiveFillColor(color) {
+    if (!color) return color;
+    const value = String(color).trim();
+    const rgbaMatch = value.match(/^rgba?\(([^)]+)\)$/i);
+    if (rgbaMatch) {
+      const parts = rgbaMatch[1].split(",").map((part) => part.trim());
+      if (parts.length >= 3) {
+        const r = parts[0];
+        const g = parts[1];
+        const b = parts[2];
+        const alpha = parts[3] !== undefined ? Number(parts[3]) : 1;
+        const boosted = Number.isFinite(alpha) ? Math.max(alpha, 0.8) : 0.8;
+        return `rgba(${r}, ${g}, ${b}, ${Math.min(1, boosted)})`;
+      }
+    }
+    const hexMatch = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      let hex = hexMatch[1];
+      if (hex.length === 3) {
+        hex = hex.split("").map((ch) => ch + ch).join("");
+      }
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, 0.8)`;
+    }
+    return value;
+  }
+
+  function getInteractiveMapAreaConfig(index, mapArea) {
+    const custom = INTERACTIVE_MAP_CONFIG.areas[index];
+    const dbColor = (mapArea?.fill_color || "").trim();
+    const popupText = buildDbPopupText(mapArea);
+    return {
+      title: mapArea?.title || custom?.title || `Área ${index + 1}`,
+      popup: popupText || custom?.popup || `Sem descrição configurada para o índice SVG ${index}.`,
+      color: dbColor || custom?.color || defaultAreaColor(index) || INTERACTIVE_MAP_CONFIG.defaultColor,
+      stroke: custom?.stroke || INTERACTIVE_MAP_CONFIG.defaultStroke,
+    };
+  }
+
+  function mapAreasByIndex(contentItem) {
+    const source = Array.isArray(contentItem?.map_areas) ? contentItem.map_areas : [];
+    const byIndex = {};
+    source.forEach((item) => {
+      const index = Number(item.area_index);
+      if (!Number.isNaN(index)) byIndex[index] = item;
+    });
+    return byIndex;
+  }
+
+  function renderAreaIndexLabels(svgRoot, areaElementsByIndex) {
+    if (!INTERACTIVE_MAP_CONFIG.showAreaIndexLabels) return;
+    const svgNs = "http://www.w3.org/2000/svg";
+    const labelsGroup = document.createElementNS(svgNs, "g");
+    labelsGroup.setAttribute("class", "interactive-map-index-labels");
+
+    Object.entries(areaElementsByIndex).forEach(([index, pathEl]) => {
+      if (!pathEl || typeof pathEl.getBBox !== "function") return;
+      let bbox = null;
+      try {
+        bbox = pathEl.getBBox();
+      } catch (error) {
+        return;
+      }
+      if (!bbox || !Number.isFinite(bbox.x) || !Number.isFinite(bbox.y)) return;
+
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+
+      const badge = document.createElementNS(svgNs, "circle");
+      badge.setAttribute("cx", String(cx));
+      badge.setAttribute("cy", String(cy));
+      badge.setAttribute("r", "9");
+      badge.setAttribute("class", "interactive-map-index-badge");
+      labelsGroup.appendChild(badge);
+
+      const text = document.createElementNS(svgNs, "text");
+      text.setAttribute("x", String(cx));
+      text.setAttribute("y", String(cy + 0.5));
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
+      text.setAttribute("class", "interactive-map-index-label");
+      text.textContent = String(index);
+      labelsGroup.appendChild(text);
+    });
+
+    svgRoot.appendChild(labelsGroup);
+  }
+
+  function renderLegend(contentItem) {
+    const state = interactiveMapState;
+    if (!state.legend) return;
+    const rows = Array.isArray(contentItem?.map_areas) ? [...contentItem.map_areas] : [];
+    rows.sort((a, b) => {
+      const orderA = Number.isFinite(Number(a.legend_order)) ? Number(a.legend_order) : 0;
+      const orderB = Number.isFinite(Number(b.legend_order)) ? Number(b.legend_order) : 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return Number(a.area_index) - Number(b.area_index);
+    });
+    if (!rows.length) {
+      state.legend.innerHTML = `<div class="interactive-map-legend-empty">Sem áreas configuradas.</div>`;
+      return;
+    }
+    state.legend.innerHTML = rows
+      .map((row) => {
+        const idx = Number(row.area_index);
+        const cfg = getInteractiveMapAreaConfig(idx, row);
+        return `
+          <button type="button" class="interactive-map-legend-item" data-area-index="${idx}">
+            <span class="interactive-map-legend-swatch" style="background:${cfg.color}; border-color:${cfg.stroke};"></span>
+            <span class="interactive-map-legend-text">
+              <span class="interactive-map-legend-title">${escapeHtml(cfg.title)}</span>
+              <span class="interactive-map-legend-meta">${escapeHtml(row.location || "")}</span>
+            </span>
+          </button>
+        `;
+      })
+      .join("");
+  }
+
+  function setLegendActive(areaIndex) {
+    const state = interactiveMapState;
+    if (!state.legend) return;
+    state.legend.querySelectorAll(".interactive-map-legend-item").forEach((el) => {
+      const isActive = Number(el.dataset.areaIndex) === areaIndex;
+      el.classList.toggle("active", isActive);
+      if (isActive) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }
+
+  function closeInteractiveMap() {
+    if (!interactiveMapState.modal) return;
+    interactiveMapState.modal.classList.remove("visible");
+  }
+
+  function ensureInteractiveMapModal() {
+    if (interactiveMapState.modal) return interactiveMapState;
+
+    const modal = document.createElement("div");
+    modal.id = "interactive-map-modal";
+    modal.innerHTML = `
+      <div class="interactive-map-dialog" role="dialog" aria-modal="true" aria-label="Mapa interativo">
+        <div class="interactive-map-top">
+          <h3 class="interactive-map-title" id="interactive-map-title">Mapa Interativo</h3>
+          <button class="interactive-map-close" type="button" aria-label="Fechar mapa">✕</button>
+        </div>
+        <div class="interactive-map-stage" id="interactive-map-stage">
+          <div class="interactive-map-canvas" id="interactive-map-canvas"></div>
+          <aside class="interactive-map-legend" id="interactive-map-legend"></aside>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const state = {
+      modal,
+      stage: modal.querySelector("#interactive-map-stage"),
+      canvas: modal.querySelector("#interactive-map-canvas"),
+      legend: modal.querySelector("#interactive-map-legend"),
+      title: modal.querySelector("#interactive-map-title"),
+      popup: null,
+      closeBtn: modal.querySelector(".interactive-map-close"),
+      lastSvgUrl: null,
+      lastImageUrl: null,
+      lastContentId: null,
+      areaElementsByIndex: {},
+      activeAreaIndex: null,
+      activateAreaByIndex: null,
+    };
+
+    state.closeBtn.addEventListener("click", closeInteractiveMap);
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeInteractiveMap();
+    });
+
+    interactiveMapState = state;
+    return state;
+  }
+
+  function buildAreaPopup(canvas) {
+    const popup = document.createElement("div");
+    popup.className = "interactive-map-popup";
+    popup.setAttribute("role", "status");
+    popup.classList.add("hidden");
+    canvas.appendChild(popup);
+    return popup;
+  }
+
+  function placePopupNearPoint(popup, stage, clientX, clientY) {
+    const stageRect = stage.getBoundingClientRect();
+    const pad = 12;
+    const popupRect = popup.getBoundingClientRect();
+    let left = clientX - stageRect.left + 16;
+    let top = clientY - stageRect.top + 16;
+
+    if (left + popupRect.width + pad > stageRect.width) {
+      left = stageRect.width - popupRect.width - pad;
+    }
+    if (top + popupRect.height + pad > stageRect.height) {
+      top = stageRect.height - popupRect.height - pad;
+    }
+    left = Math.max(pad, left);
+    top = Math.max(pad, top);
+
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+  }
+
+  function showAreaPopup(areaCfg, event, stage) {
+    const state = interactiveMapState;
+    if (!state.popup) {
+      state.popup = buildAreaPopup(stage);
+    }
+    state.popup.innerHTML = `
+      <div class="interactive-map-popup-title">${escapeHtml(areaCfg.title)}</div>
+      <div class="interactive-map-popup-body">${escapeHtml(areaCfg.popup)}</div>
+    `;
+    state.popup.classList.remove("hidden");
+    placePopupNearPoint(state.popup, stage, event.clientX, event.clientY);
+  }
+
+  function resolveMapImageUrl(contentItem) {
+    if (INTERACTIVE_MAP_CONFIG.baseImageUrl) {
+      return INTERACTIVE_MAP_CONFIG.baseImageUrl;
+    }
+    const candidate = (contentItem.media || []).find((item) => item && item.type === "image" && (item.full_url || item.url));
+    return candidate ? (candidate.full_url || candidate.url) : "";
+  }
+
+  async function renderInteractiveMapSvg(stage, imageUrl, contentItem) {
+    const state = interactiveMapState;
+    const canvas = state.canvas || stage;
+    if (
+      state.lastSvgUrl === INTERACTIVE_MAP_CONFIG.svgUrl &&
+      state.lastImageUrl === imageUrl &&
+      state.lastContentId === contentItem?.id &&
+      canvas.querySelector("svg")
+    ) {
+      return;
+    }
+    const response = await fetch(INTERACTIVE_MAP_CONFIG.svgUrl, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Não foi possível carregar o SVG do mapa.");
+    }
+    const svgText = await response.text();
+    const parsed = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const svgRoot = parsed.documentElement;
+    svgRoot.classList.add("interactive-map-svg");
+    svgRoot.removeAttribute("width");
+    svgRoot.removeAttribute("height");
+
+    const frameRect = svgRoot.querySelector("rect");
+    if (frameRect && imageUrl) {
+      const svgNs = "http://www.w3.org/2000/svg";
+      const imageNode = document.createElementNS(svgNs, "image");
+      imageNode.setAttribute("href", imageUrl);
+      imageNode.setAttribute("x", frameRect.getAttribute("x") || "0");
+      imageNode.setAttribute("y", frameRect.getAttribute("y") || "0");
+      imageNode.setAttribute("width", frameRect.getAttribute("width") || "100%");
+      imageNode.setAttribute("height", frameRect.getAttribute("height") || "100%");
+      // Exact frame fit keeps traced overlays aligned with source map.
+      imageNode.setAttribute("preserveAspectRatio", "none");
+      imageNode.classList.add("interactive-map-base-image");
+      svgRoot.insertBefore(imageNode, svgRoot.firstChild);
+    }
+
+    const paths = Array.from(svgRoot.querySelectorAll("path"));
+    const areaDataByIndex = mapAreasByIndex(contentItem);
+    state.areaElementsByIndex = {};
+    state.activeAreaIndex = null;
+
+    state.activateAreaByIndex = (areaIndex, event) => {
+      const target = state.areaElementsByIndex[areaIndex];
+      if (!target) return;
+      const mapArea = areaDataByIndex[areaIndex];
+      const areaCfg = getInteractiveMapAreaConfig(areaIndex, mapArea);
+      svgRoot.querySelectorAll(".interactive-map-area.active").forEach((el) => el.classList.remove("active"));
+      Object.values(state.areaElementsByIndex).forEach((el) => {
+        if (el && el.dataset.baseFill) {
+          el.style.fill = el.dataset.baseFill;
+        }
+      });
+      target.classList.add("active");
+      if (target.dataset.activeFill) {
+        target.style.fill = target.dataset.activeFill;
+      }
+      state.activeAreaIndex = areaIndex;
+      setLegendActive(areaIndex);
+
+      let clickEvent = event;
+      if (!clickEvent) {
+        const rect = target.getBoundingClientRect();
+        clickEvent = {
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height / 2,
+        };
+      }
+      showAreaPopup(areaCfg, clickEvent, canvas);
+    };
+
+    let interactiveIndex = 0;
+    paths.forEach((path) => {
+      const currentIndex = interactiveIndex;
+      const areaCfg = getInteractiveMapAreaConfig(currentIndex, areaDataByIndex[currentIndex]);
+      // The source SVG defines `.cls-1 { fill: none; }`; set inline style so areas stay clickable.
+      path.style.fill = areaCfg.color;
+      path.style.stroke = areaCfg.stroke;
+      path.style.strokeWidth = "1px";
+      path.style.cursor = "pointer";
+      path.style.pointerEvents = "all";
+      path.dataset.baseFill = areaCfg.color;
+      path.dataset.activeFill = toActiveFillColor(areaCfg.color);
+      path.classList.add("interactive-map-area");
+      path.dataset.mapAreaIndex = String(currentIndex);
+      state.areaElementsByIndex[currentIndex] = path;
+      path.addEventListener("mouseenter", () => {
+        path.classList.add("hovered");
+      });
+      path.addEventListener("mouseleave", () => {
+        path.classList.remove("hovered");
+      });
+      path.addEventListener("click", (event) => {
+        event.stopPropagation();
+        state.activateAreaByIndex(currentIndex, event);
+      });
+      interactiveIndex += 1;
+    });
+
+    if (frameRect) {
+      frameRect.classList.add("interactive-map-frame");
+      frameRect.setAttribute("fill", "none");
+      frameRect.setAttribute("stroke", "rgba(255,255,255,0.08)");
+    }
+
+    canvas.querySelectorAll(".interactive-map-svg").forEach((el) => el.remove());
+    canvas.appendChild(svgRoot);
+    renderAreaIndexLabels(svgRoot, state.areaElementsByIndex);
+    canvas.onclick = () => {
+      if (interactiveMapState.popup) {
+        interactiveMapState.popup.classList.add("hidden");
+      }
+      canvas.querySelectorAll(".interactive-map-area.active").forEach((el) => el.classList.remove("active"));
+      Object.values(interactiveMapState.areaElementsByIndex).forEach((el) => {
+        if (el && el.dataset.baseFill) {
+          el.style.fill = el.dataset.baseFill;
+        }
+      });
+      interactiveMapState.activeAreaIndex = null;
+      setLegendActive(-1);
+    };
+
+    state.lastSvgUrl = INTERACTIVE_MAP_CONFIG.svgUrl;
+    state.lastImageUrl = imageUrl;
+    state.lastContentId = contentItem?.id || null;
+  }
+
+  async function openInteractiveMap(contentItem) {
+    const state = ensureInteractiveMapModal();
+    const itemTitle = sectionLabel(contentItem);
+    state.title.textContent = `${itemTitle} - Mapa Interativo`;
+
+    const imageUrl = resolveMapImageUrl(contentItem);
+    renderLegend(contentItem);
+
+    if (!state.popup) {
+      state.popup = buildAreaPopup(state.canvas || state.stage);
+    } else {
+      state.popup.classList.add("hidden");
+    }
+
+    try {
+      await renderInteractiveMapSvg(state.stage, imageUrl, contentItem);
+      state.legend.querySelectorAll(".interactive-map-legend-item").forEach((item) => {
+        item.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const idx = Number(item.dataset.areaIndex);
+          if (!Number.isNaN(idx) && state.activateAreaByIndex) {
+            state.activateAreaByIndex(idx);
+          }
+        });
+      });
+      state.modal.classList.add("visible");
+    } catch (error) {
+      state.stage.innerHTML = `<div class="interactive-map-error">Erro ao carregar mapa interativo.</div>`;
+      state.modal.classList.add("visible");
+    }
+  }
+
+  function appendInteractiveMapButton(contentItem) {
+    if (!shouldShowInteractiveMap(contentItem)) return;
+    const actions = document.createElement("div");
+    actions.className = "interactive-map-actions";
+    actions.innerHTML = `
+      <button type="button" class="view-map-btn">VER MAPA</button>
+    `;
+    const btn = actions.querySelector(".view-map-btn");
+    btn.addEventListener("click", () => {
+      openInteractiveMap(contentItem);
+    });
+    contentBody.appendChild(actions);
   }
 
   function buildMenu() {
@@ -132,6 +619,7 @@
               )
               .join("")}
           </div>
+          <div class="media-counter">1/${group.items.length}</div>
           <button class="media-nav next" aria-label="Próxima imagem">›</button>
         </div>
         <div class="caption">${group.caption}</div>
@@ -144,11 +632,21 @@
       const slides = Array.from(carousel.querySelectorAll(".media-slide"));
       if (slides.length <= 1) return;
       let activeIndex = 0;
+      const counter = carousel.querySelector(".media-counter");
 
       const update = () => {
         slides.forEach((slide, idx) => {
           slide.classList.toggle("active", idx === activeIndex);
         });
+        if (counter) {
+          counter.textContent = `${activeIndex + 1}/${slides.length}`;
+        }
+        if (prev) {
+          prev.classList.toggle("hidden", activeIndex === 0);
+        }
+        if (next) {
+          next.classList.toggle("hidden", activeIndex === slides.length - 1);
+        }
       };
 
       const prev = carousel.querySelector(".media-nav.prev");
@@ -156,15 +654,21 @@
 
       prev.addEventListener("click", (e) => {
         e.stopPropagation();
-        activeIndex = (activeIndex - 1 + slides.length) % slides.length;
+        if (activeIndex > 0) {
+          activeIndex -= 1;
+        }
         update();
       });
 
       next.addEventListener("click", (e) => {
         e.stopPropagation();
-        activeIndex = (activeIndex + 1) % slides.length;
+        if (activeIndex < slides.length - 1) {
+          activeIndex += 1;
+        }
         update();
       });
+
+      update();
     });
   }
 
@@ -229,6 +733,9 @@
           const targetId = Number(card.dataset.projectId);
           const target = (contentItem.children || []).find((child) => child.id === targetId);
           if (!target) return;
+          contentSubnav.querySelectorAll(".content-subnav-item").forEach((item) => {
+            item.classList.toggle("active", Number(item.dataset.contentId) === targetId);
+          });
           updateBody(target);
         });
       });
@@ -251,11 +758,13 @@
         <h3 class="content-item-title">${itemTitle}</h3>
         ${bodyHtml}
       `;
+      appendInteractiveMapButton(contentItem);
       contentBody.classList.remove("hidden");
     } else {
       contentBody.innerHTML = `
         <h3 class="content-item-title">${itemTitle}</h3>
       `;
+      appendInteractiveMapButton(contentItem);
       contentBody.classList.remove("hidden");
     }
     contentImages.classList.remove("hidden");
@@ -275,8 +784,26 @@
     if (rootNode && rootNode.slug === "parceiros-e-projetos") {
       contentSubnav.classList.remove("hidden");
       contentArea.classList.add("has-subnav");
-      contentSubnav.innerHTML = "";
-      return { setActive: () => {} };
+      const children = rootNode.children || [];
+      contentSubnav.innerHTML = children
+        .map(
+          (node) => `
+            <div class="content-subnav-item" data-content-id="${node.id}">
+              ${sectionLabel(node)}
+            </div>
+          `
+        )
+        .join("");
+      return {
+        setActive(contentId) {
+          contentSubnav.querySelectorAll(".content-subnav-item").forEach((el) => {
+            el.classList.toggle("active", String(contentId) === el.dataset.contentId);
+            if (el.classList.contains("active")) {
+              el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+            }
+          });
+        },
+      };
     }
 
     const treeRows = [];
@@ -304,6 +831,9 @@
       setActive(contentId) {
         contentSubnav.querySelectorAll(".content-subnav-item").forEach((el) => {
           el.classList.toggle("active", String(contentId) === el.dataset.contentId);
+          if (el.classList.contains("active")) {
+            el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+          }
         });
       },
     };
@@ -438,6 +968,7 @@
 
   function hideContent() {
     activeSectionSlug = null;
+    closeInteractiveMap();
     contentPanel.classList.remove("visible");
     menu.querySelectorAll(".menu-item").forEach((el) => el.classList.remove("active"));
     connectionLine.style.transform = "scaleX(0)";
@@ -449,6 +980,9 @@
   }
 
   closeBtn.addEventListener("click", hideContent);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeInteractiveMap();
+  });
 
   // Basic kiosk hardening for accidental browser gestures.
   document.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -487,6 +1021,14 @@
       return;
     }
 
+    // Color map for named meshes in the multic.glb two-mesh model.
+    // Falls back to orange for any unrecognised mesh name (e.g. furnas_10.glb).
+    const WIREFRAME_COLORS = {
+      mosaico_dentro: new THREE.Color(0xf8992c), // highlight — orange
+      mosaico_fora:   new THREE.Color(0x5a5a5a), // base terrain — dark grey
+    };
+    const DEFAULT_WIREFRAME_COLOR = new THREE.Color(0xf8992c);
+
     loader.load(
       modelUrl,
       (gltf) => {
@@ -498,7 +1040,9 @@
           const geo = child.geometry.clone();
           geo.applyMatrix4(child.matrixWorld);
           const wf = new THREE.WireframeGeometry(geo);
-          const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(0xf8992c), transparent: true, opacity: 0.9 });
+          const colorKey = Object.keys(WIREFRAME_COLORS).find(k => child.name.startsWith(k));
+          const color = colorKey ? WIREFRAME_COLORS[colorKey] : DEFAULT_WIREFRAME_COLOR;
+          const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 });
           wireframeGroup.add(new THREE.LineSegments(wf, mat));
         });
         scene.add(wireframeGroup);
