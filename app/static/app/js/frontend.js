@@ -15,6 +15,33 @@
   const verticalLineUp = document.getElementById("vertical-line-up");
   const verticalLineDown = document.getElementById("vertical-line-down");
   const INTERACTIVE_MAP_SLUG = "aquisicao-de-terrenos";
+  const USO_SOLOS_SLUG = "uso-dos-solos";
+
+  // ── Switch between "v1" and "v2" when the client decides ──────────────────
+  const USO_SOLOS_ACTIVE_VERSION = "v1"; // change to "v2" to show V2 maps
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const USO_SOLOS_VERSIONS = {
+    v1: {
+      years: ["2002", "2018", "2026"],
+      images: {
+        "2002": "/static/app/maps/uso_solos_2002.png",
+        "2018": "/static/app/maps/uso_solos_2018.png",
+        "2026": "/static/app/maps/uso_solos_2026.png",
+      },
+      legendUrl: "/static/app/maps/uso_solos_legenda.png",
+    },
+    v2: {
+      years: ["2002", "2018", "2026"],
+      images: {
+        "2002": "/static/app/maps/uso_solos_2002_v2.png",
+        "2018": "/static/app/maps/uso_solos_2018_v2.png",
+        "2026": "/static/app/maps/uso_solos_2026_v2.png",
+      },
+      legendUrl: "/static/app/maps/uso_solos_legenda_v2.png",
+    },
+  };
+  const USO_SOLOS_CONFIG = USO_SOLOS_VERSIONS[USO_SOLOS_ACTIVE_VERSION];
   const INTERACTIVE_MAP_CONFIG = {
     svgUrl: "/static/app/maps/furnas_svg.svg",
     // Background image aligned inside SVG frame rect.
@@ -495,6 +522,64 @@
     }
   }
 
+  // ── Uso dos Solos — year-comparison map ──────────────────────────────────
+  function shouldShowUsoSolosMap(contentItem) {
+    return contentItem && contentItem.slug === USO_SOLOS_SLUG;
+  }
+
+  function openUsoSolosMap() {
+    const state = ensureInteractiveMapModal();
+    const cfg = USO_SOLOS_CONFIG;
+    let activeYear = cfg.years[0];
+
+    state.title.textContent = "Uso dos Solos";
+
+    // Build canvas content
+    state.canvas.innerHTML = `
+      <div class="uso-solos-img-wrap">
+        ${cfg.years.map(y => `
+          <img class="uso-solos-img${y === activeYear ? ' active' : ''}"
+               data-year="${y}"
+               src="${cfg.images[y]}"
+               alt="Uso dos Solos ${y}" />
+        `).join('')}
+      </div>
+      <div class="uso-solos-btns">
+        ${cfg.years.map(y => `
+          <button class="uso-solos-year-btn${y === activeYear ? ' active' : ''}" data-year="${y}">${y}</button>
+        `).join('')}
+      </div>
+    `;
+
+    // Legend
+    state.legend.innerHTML = `
+      <img class="uso-solos-legend" src="${cfg.legendUrl}" alt="Legenda" />
+    `;
+
+    // Year switching with crossfade
+    state.canvas.querySelectorAll(".uso-solos-year-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const year = btn.dataset.year;
+        if (year === activeYear) return;
+        activeYear = year;
+        state.canvas.querySelectorAll(".uso-solos-year-btn").forEach(b => b.classList.toggle("active", b.dataset.year === year));
+        state.canvas.querySelectorAll(".uso-solos-img").forEach(img => img.classList.toggle("active", img.dataset.year === year));
+      });
+    });
+
+    state.modal.classList.add("visible");
+  }
+
+  function appendUsoSolosButton(contentItem) {
+    if (!shouldShowUsoSolosMap(contentItem)) return;
+    const actions = document.createElement("div");
+    actions.className = "interactive-map-actions";
+    actions.innerHTML = `<button type="button" class="view-map-btn">VER MAPA</button>`;
+    actions.querySelector(".view-map-btn").addEventListener("click", openUsoSolosMap);
+    contentBody.appendChild(actions);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   function appendInteractiveMapButton(contentItem) {
     if (!shouldShowInteractiveMap(contentItem)) return;
     const actions = document.createElement("div");
@@ -759,12 +844,14 @@
         ${bodyHtml}
       `;
       appendInteractiveMapButton(contentItem);
+      appendUsoSolosButton(contentItem);
       contentBody.classList.remove("hidden");
     } else {
       contentBody.innerHTML = `
         <h3 class="content-item-title">${itemTitle}</h3>
       `;
       appendInteractiveMapButton(contentItem);
+      appendUsoSolosButton(contentItem);
       contentBody.classList.remove("hidden");
     }
     contentImages.classList.remove("hidden");

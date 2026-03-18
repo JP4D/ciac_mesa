@@ -9,7 +9,7 @@ from django.template.response import TemplateResponse
 from urllib.parse import urlencode
 
 from .forms import ContentSectionAdminForm, MapAreaInfoAdminForm
-from .models import Category, ContentSection, Geopark, MapAreaInfo, MapComparison, Media, SubCategory
+from .models import Category, ContentSection, Geopark, MapAreaInfo, Media, SubCategory
 from .management.commands.import_geoparks import (
     _load_xlsx, _load_csv, _parse_coords, _parse_date,
     _safe_float, _safe_int, HEADER_MAP,
@@ -23,7 +23,7 @@ admin.site.index_title  = "Gestor de Conteúdos"
 class MediaInline(SortableInlineAdminMixin, admin.TabularInline):
     model = Media
     extra = 0
-    fields = ("preview", "media_type", "file", "caption", "caption_en", "is_zoomable")
+    fields = ("preview", "media_type", "file", "caption", "caption_en")
     readonly_fields = ("preview",)
     ordering = ("order", "id")
     sortable_field_name = "order"
@@ -46,14 +46,6 @@ class MediaInline(SortableInlineAdminMixin, admin.TabularInline):
 
     preview.short_description = "Preview"
 
-
-class MapComparisonInline(SortableInlineAdminMixin, admin.TabularInline):
-    model = MapComparison
-    extra = 0
-    fields = ("title", "image_before", "image_after", "caption_before", "caption_after")
-    ordering = ("order", "id")
-    sortable_field_name = "order"
-    classes = ("baton-tab-inline-comparisons",)
 
 
 class MapAreaInfoInline(SortableTabularInline):
@@ -99,7 +91,7 @@ class ContentSectionAdmin(SortableAdminMixin, SortableAdminBase, admin.ModelAdmi
     list_filter = ("section", "category", "is_active")
     search_fields = ("title", "title_en", "content", "content_en")
     ordering = ("order", "title")
-    inlines = (MediaInline, MapComparisonInline, MapAreaInfoInline)
+    inlines = (MediaInline, MapAreaInfoInline)
     readonly_fields = ("map_areas_shortcut",)
     fieldsets = (
         (
@@ -108,7 +100,6 @@ class ContentSectionAdmin(SortableAdminMixin, SortableAdminBase, admin.ModelAdmi
                 "classes": (
                     "baton-tabs-init",
                     "baton-tab-inline-media",
-                    "baton-tab-inline-comparisons",
                     "baton-tab-inline-map-areas",
                 ),
                 "fields": (
@@ -170,12 +161,6 @@ class ContentSectionAdmin(SortableAdminMixin, SortableAdminBase, admin.ModelAdmi
 
     map_areas_shortcut.short_description = "Atalho de áreas do mapa"
 
-
-@admin.register(MapComparison)
-class MapComparisonAdmin(admin.ModelAdmin):
-    list_display = ("title", "content", "order")
-    search_fields = ("title",)
-    ordering = ("content", "order", "id")
 
 
 @admin.register(Geopark)

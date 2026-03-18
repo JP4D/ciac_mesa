@@ -191,7 +191,6 @@ class Media(models.Model):
     caption = models.CharField("Legenda", max_length=200, blank=True)
     caption_en = models.CharField("Legenda (EN)", max_length=200, blank=True)
     order = models.PositiveIntegerField("Ordem", default=0)
-    is_zoomable = models.BooleanField("Permite zoom", default=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -201,30 +200,6 @@ class Media(models.Model):
     def __str__(self) -> str:
         return self.caption or self.file.name
 
-
-class MapComparison(models.Model):
-    """Before/after map comparison assets for section views."""
-
-    content = models.ForeignKey(
-        ContentSection,
-        on_delete=models.CASCADE,
-        related_name="comparisons",
-        verbose_name="Conteúdo",
-    )
-    title = models.CharField("Titulo", max_length=200)
-    image_before = models.ImageField("Imagem antes", upload_to="maps/before/")
-    image_after = models.ImageField("Imagem depois", upload_to="maps/after/")
-    caption_before = models.CharField("Legenda antes", max_length=100, default="Antes")
-    caption_after = models.CharField("Legenda depois", max_length=100, default="Depois")
-    order = models.PositiveIntegerField("Ordem", default=0)
-
-    class Meta:
-        ordering = ["order", "id"]
-        verbose_name = "Comparação de mapa"
-        verbose_name_plural = "Comparações de mapa"
-
-    def __str__(self) -> str:
-        return self.title
 
 
 class Geopark(models.Model):
