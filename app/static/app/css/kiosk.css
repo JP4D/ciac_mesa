@@ -136,21 +136,74 @@ img {
     z-index: 80;
     transform-origin: left center;
     transform: scaleX(0);
-    box-shadow: 0 0 10px var(--accent-glow);
+    box-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow);
+    pointer-events: none;
+}
+
+.connection-line.animating {
+    animation: lineGrow 0.4s ease-out forwards;
+}
+
+.connection-line.closing {
+    animation: lineShrink 0.3s ease-in forwards;
 }
 
 .vertical-line-up,
 .vertical-line-down {
     position: fixed;
-    left: 415px;
+    left: 460px;
     width: 4px;
     background: var(--accent);
     z-index: 200;
+    box-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-glow);
+    pointer-events: none;
+}
+
+.vertical-line-up {
+    transform-origin: bottom center;
     transform: scaleY(0);
 }
 
-.vertical-line-up { transform-origin: bottom center; }
-.vertical-line-down { transform-origin: top center; }
+.vertical-line-down {
+    transform-origin: top center;
+    transform: scaleY(0);
+}
+
+.vertical-line-up.animating {
+    animation: verticalLineGrow 0.5s ease-out forwards;
+    animation-delay: 0.25s;
+}
+
+.vertical-line-down.animating {
+    animation: verticalLineGrow 0.5s ease-out forwards;
+    animation-delay: 0.25s;
+}
+
+.vertical-line-up.closing,
+.vertical-line-down.closing {
+    animation: verticalLineShrink 0.2s ease-in forwards;
+}
+
+@keyframes lineGrow {
+    0%   { transform: scaleX(0); opacity: 1; }
+    100% { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes lineShrink {
+    0%   { transform: scaleX(1); opacity: 1; }
+    100% { transform: scaleX(0); opacity: 0; }
+}
+
+@keyframes verticalLineGrow {
+    0%   { transform: scaleY(0); opacity: 0; }
+    10%  { opacity: 1; }
+    100% { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes verticalLineShrink {
+    0%   { transform: scaleY(1); opacity: 1; }
+    100% { transform: scaleY(0); opacity: 0; }
+}
 
 #content-panel {
     position: fixed;
@@ -162,7 +215,7 @@ img {
     opacity: 0;
     transform: translateX(30px);
     pointer-events: none;
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    transition: opacity 0.4s ease, transform 0.4s ease;
     background: rgba(26, 26, 26, 0.84);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;

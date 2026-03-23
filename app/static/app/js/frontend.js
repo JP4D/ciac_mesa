@@ -1018,52 +1018,100 @@
     });
   }
 
+  function restartAnimation(el) {
+    el.classList.remove("animating", "closing");
+    void el.offsetWidth; // force reflow so animation restarts
+  }
+
   function animateLine(item) {
-    const nodeRect = item.querySelector(".menu-node").getBoundingClientRect();
-    const y = nodeRect.top + nodeRect.height / 2;
-    const xStart = nodeRect.left + nodeRect.width + 8;
-    const xTarget = 455;
-    connectionLine.style.top = `${y}px`;
-    connectionLine.style.left = `${xStart}px`;
-    connectionLine.style.width = `${Math.max(20, xTarget - xStart)}px`;
-    connectionLine.style.transform = "scaleX(1)";
+    const node = item.querySelector(".menu-node");
+    const rect = node.getBoundingClientRect();
+    const x = rect.right;  // right edge of the dot — no gap
+    const y = rect.top + rect.height / 2;
+    const targetX = 460; // left edge of content panel
 
+    // Horizontal line
+    restartAnimation(connectionLine);
+    connectionLine.style.top   = `${y}px`;
+    connectionLine.style.left  = `${x}px`;
+    connectionLine.style.width = `${Math.max(20, targetX - x)}px`;
+    connectionLine.classList.add("animating");
+
+    // Vertical line UP — grows from connection point upward to content top
     const contentTop = 160;
-    const contentBottom = window.innerHeight - 50;
-    verticalLineUp.style.left = `${xTarget}px`;
-    verticalLineDown.style.left = `${xTarget}px`;
-    verticalLineUp.style.top = `${contentTop}px`;
+    restartAnimation(verticalLineUp);
+    verticalLineUp.style.left   = `${targetX}px`;
+    verticalLineUp.style.top    = `${contentTop}px`;
     verticalLineUp.style.height = `${Math.max(0, y - contentTop)}px`;
-    verticalLineUp.style.transform = "scaleY(1)";
+    verticalLineUp.classList.add("animating");
 
-    verticalLineDown.style.top = `${y}px`;
+    // Vertical line DOWN — grows from connection point downward to content bottom
+    const contentBottom = window.innerHeight - 50;
+    restartAnimation(verticalLineDown);
+    verticalLineDown.style.left   = `${targetX}px`;
+    verticalLineDown.style.top    = `${y}px`;
     verticalLineDown.style.height = `${Math.max(0, contentBottom - y)}px`;
-    verticalLineDown.style.transform = "scaleY(1)";
+    verticalLineDown.classList.add("animating");
+  }
+
+  function hideLines(callback) {
+    verticalLineUp.classList.remove("animating");
+    verticalLineUp.classList.add("closing");
+    verticalLineDown.classList.remove("animating");
+    verticalLineDown.classList.add("closing");
+    setTimeout(() => {
+      connectionLine.classList.remove("animating");
+      connectionLine.classList.add("closing");
+    }, 100);
+    setTimeout(() => {
+      connectionLine.classList.remove("closing");
+      verticalLineUp.classList.remove("closing");
+      verticalLineDown.classList.remove("closing");
+      if (callback) callback();
+    }, 350);
   }
 
   function showSection(slug, item) {
     const section = getSectionBySlug(slug);
     if (!section) return;
+
+    // If switching menus, fade out content first then re-animate
+    if (activeSectionSlug && activeSectionSlug !== slug) {
+      contentPanel.classList.remove("visible");
+      setTimeout(() => {
+        activeSectionSlug = slug;
+        menu.querySelectorAll(".menu-item").forEach((el) => {
+          el.classList.toggle("active", el.dataset.section === slug);
+        });
+        animateLine(item);
+        renderTabs(section);
+        setTimeout(() => contentPanel.classList.add("visible"), 300);
+      }, 200);
+      return;
+    }
+
     activeSectionSlug = slug;
     menu.querySelectorAll(".menu-item").forEach((el) => {
       el.classList.toggle("active", el.dataset.section === slug);
     });
     animateLine(item);
     renderTabs(section);
-    contentPanel.classList.add("visible");
+    // Delay fade-in to let the horizontal line grow first (~300ms)
+    setTimeout(() => contentPanel.classList.add("visible"), 300);
   }
 
   function hideContent() {
     activeSectionSlug = null;
     closeInteractiveMap();
+    // Fade panel out first, then shrink lines
     contentPanel.classList.remove("visible");
-    menu.querySelectorAll(".menu-item").forEach((el) => el.classList.remove("active"));
-    connectionLine.style.transform = "scaleX(0)";
-    verticalLineUp.style.transform = "scaleY(0)";
-    verticalLineDown.style.transform = "scaleY(0)";
-    contentSubnav.classList.add("hidden");
-    contentArea.classList.remove("has-subnav");
-    contentSubnav.innerHTML = "";
+    setTimeout(() => {
+      hideLines();
+      menu.querySelectorAll(".menu-item").forEach((el) => el.classList.remove("active"));
+      contentSubnav.classList.add("hidden");
+      contentArea.classList.remove("has-subnav");
+      contentSubnav.innerHTML = "";
+    }, 250);
   }
 
   closeBtn.addEventListener("click", hideContent);
