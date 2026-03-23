@@ -17,6 +17,7 @@ def _serialize_media(content):
                 "full_url": media.file.url if media.file else "",
                 "caption": media.caption,
                 "caption_en": media.caption_en,
+                "group": media.group,
             }
         )
     return media_items

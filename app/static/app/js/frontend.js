@@ -640,28 +640,25 @@
     return item.caption || item.caption_en || "";
   }
 
-  function captionKey(item) {
-    return (item.caption || "").trim().toLowerCase();
-  }
-
   function buildMediaGroups(items) {
     const groups = [];
-    const groupedByCaption = {};
+    const groupedByKey = {};
 
     items.forEach((item, idx) => {
-      const key = captionKey(item);
-      if (key && groupedByCaption[key]) {
-        groupedByCaption[key].items.push(item);
+      // Use explicit group field if set, otherwise treat as standalone
+      const key = (item.group || "").trim();
+      if (key && groupedByKey[key]) {
+        groupedByKey[key].items.push(item);
         return;
       }
       const group = {
-        id: key ? `caption-${groups.length}` : `single-${idx}`,
+        id: key ? `group-${key}-${groups.length}` : `single-${idx}`,
         key,
         caption: mediaCaption(item),
         items: [item],
       };
       groups.push(group);
-      if (key) groupedByCaption[key] = group;
+      if (key) groupedByKey[key] = group;
     });
 
     return groups;

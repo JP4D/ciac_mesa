@@ -191,6 +191,12 @@ class Media(models.Model):
     caption = models.CharField("Legenda", max_length=200, blank=True)
     caption_en = models.CharField("Legenda (EN)", max_length=200, blank=True)
     order = models.PositiveIntegerField("Ordem", default=0)
+    group = models.CharField(
+        "Grupo",
+        max_length=10,
+        blank=True,
+        help_text="Imagens com o mesmo grupo são mostradas em carrossel (ex: A, B, C…)",
+    )
 
     class Meta:
         ordering = ["order", "id"]

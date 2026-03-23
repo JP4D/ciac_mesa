@@ -23,7 +23,7 @@ admin.site.index_title  = "Gestor de Conteúdos"
 class MediaInline(SortableInlineAdminMixin, admin.TabularInline):
     model = Media
     extra = 0
-    fields = ("preview", "media_type", "file", "caption", "caption_en")
+    fields = ("preview", "media_type", "file", "caption", "caption_en", "group")
     readonly_fields = ("preview",)
     ordering = ("order", "id")
     sortable_field_name = "order"
