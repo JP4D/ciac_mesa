@@ -14,8 +14,14 @@
     </div>
 
     <div id="header">
-        <div class="subtitle">Plano de Ordenamento</div>
-        <div class="title">Bacia Hidrográfica das Furnas</div>
+        <div class="subtitle" id="header-subtitle">{{ site_subtitle_pt }}</div>
+        <div class="title" id="header-title">{{ site_title_pt }}</div>
+    </div>
+
+    <div id="lang-toggle">
+        <button id="btn-pt" class="active" data-lang="pt">PT</button>
+        <div class="divider"></div>
+        <button id="btn-en" data-lang="en">EN</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -45,6 +51,10 @@
     {{ sections|json_script:"app-data" }}
     <script>
         window.APP_MODEL_URL = "{{ model_url }}";
+        window.APP_HEADER = {
+            pt: { title: "{{ site_title_pt }}", subtitle: "{{ site_subtitle_pt }}" },
+            en: { title: "{{ site_title_en }}", subtitle: "{{ site_subtitle_en }}" }
+        };
     </script>
     <script src="{% static 'app/vendor/three/three.min.js' %}"></script>
     <script src="{% static 'app/vendor/three/GLTFLoader.js' %}"></script>

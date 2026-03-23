@@ -177,6 +177,13 @@ BATON = {
                     "url": "/admin/app/mapareainfo/",
                     "icon": "fa fa-map-marker",
                 },
+                {
+                    "type": "model",
+                    "name": "sitesettings",
+                    "app": "app",
+                    "label": "Configurações",
+                    "icon": "fa fa-cog",
+                },
             ],
         },
         {

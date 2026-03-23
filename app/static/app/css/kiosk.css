@@ -51,6 +51,52 @@ img {
     text-align: right;
 }
 
+#lang-toggle {
+    position: fixed;
+    top: 99px;
+    right: 41px;
+    z-index: 110;
+    display: flex;
+    align-items: stretch;
+    background: rgba(26, 26, 26, 0.85);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#lang-toggle button {
+    min-width: 48px;
+    height: 34px;
+    padding: 0 14px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+}
+
+#lang-toggle button.active {
+    background: rgba(248, 153, 44, 0.15);
+    color: var(--accent);
+}
+
+#lang-toggle button:hover:not(.active) {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#lang-toggle .divider {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    align-self: stretch;
+}
+
 #header .subtitle {
     font-size: 12px;
     letter-spacing: 3px;
@@ -934,3 +980,134 @@ img {
     border-color: var(--accent);
     color: var(--accent);
 }
+
+/* ── Lightbox ─────────────────────────────────────────────────────────── */
+#lightbox-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: rgba(8, 8, 8, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+#lightbox-modal.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.lightbox-dialog {
+    width: min(1200px, 94vw);
+    height: min(860px, 92vh);
+    background: rgba(26, 26, 26, 0.98);
+    border: 1px solid rgba(248, 153, 44, 0.4);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.lightbox-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.lightbox-counter {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+}
+
+.lightbox-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(26, 26, 26, 0.8);
+    color: var(--text-primary);
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.lightbox-close:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.lightbox-stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 0;
+    position: relative;
+}
+
+.lightbox-img-wrap {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    min-width: 0;
+}
+
+.lightbox-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.lightbox-nav {
+    flex-shrink: 0;
+    width: 52px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    color: var(--text-muted);
+    font-size: 32px;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lightbox-nav:hover {
+    background: rgba(248, 153, 44, 0.1);
+    color: var(--accent);
+}
+
+.lightbox-nav.nav-invisible {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.lightbox-caption {
+    flex-shrink: 0;
+    padding: 12px 24px 16px;
+    text-align: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    min-height: 44px;
+}
+
+/* ────────────────────────────────────────────────────────────────────── */

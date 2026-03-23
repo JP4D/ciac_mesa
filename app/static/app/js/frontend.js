@@ -14,6 +14,38 @@
   const connectionLine = document.getElementById("connection-line");
   const verticalLineUp = document.getElementById("vertical-line-up");
   const verticalLineDown = document.getElementById("vertical-line-down");
+  const langToggle = document.getElementById("lang-toggle");
+
+  let currentLang = "pt";
+
+  const headerStrings = window.APP_HEADER;
+
+  function setLang(lang) {
+    currentLang = lang;
+    langToggle.querySelectorAll("button").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.lang === lang);
+    });
+    // Update app header
+    const hs = headerStrings[lang];
+    document.getElementById("header-subtitle").textContent = hs.subtitle;
+    document.getElementById("header-title").textContent    = hs.title;
+    // Rebuild menu labels
+    buildMenu();
+    // Re-render current view if open
+    if (activeSectionSlug) {
+      const section = getSectionBySlug(activeSectionSlug);
+      if (section) renderTabs(section);
+    }
+    // Refresh lightbox caption if open
+    if (lightboxEl && lightboxEl.classList.contains("visible")) {
+      lightboxEl._refresh();
+    }
+  }
+
+  langToggle.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => setLang(btn.dataset.lang));
+  });
+
   const INTERACTIVE_MAP_SLUG = "aquisicao-de-terrenos";
   const USO_SOLOS_SLUG = "uso-dos-solos";
 
@@ -83,7 +115,9 @@
   };
 
   function sectionLabel(section) {
-    const label = section.title || section.slug;
+    const label = (currentLang === "en" && section.title_en)
+      ? section.title_en
+      : (section.title || section.slug);
     return label.replace(/^\d+(\.\d+)?\s*-\s*/g, "");
   }
 
@@ -608,6 +642,10 @@
       .join("");
 
     menu.querySelectorAll(".menu-item").forEach((item) => {
+      // Restore active state after language rebuild
+      if (item.dataset.section === activeSectionSlug) {
+        item.classList.add("active");
+      }
       item.addEventListener("click", () => {
         const slug = item.dataset.section;
         if (slug === activeSectionSlug) {
@@ -623,11 +661,85 @@
     return sections.find((s) => s.slug === slug);
   }
 
+  // ── Lightbox state ────────────────────────────────────────────────────────
+  let lightboxItems = [];   // flat array of all image items in current view
+  let lightboxIndex = 0;    // currently shown index
+  let lightboxEl = null;    // cached modal element
+
+  function ensureLightbox() {
+    if (lightboxEl) return lightboxEl;
+    const el = document.createElement("div");
+    el.id = "lightbox-modal";
+    el.innerHTML = `
+      <div class="lightbox-dialog">
+        <div class="lightbox-top">
+          <span class="lightbox-counter"></span>
+          <button class="lightbox-close" aria-label="Fechar">✕</button>
+        </div>
+        <div class="lightbox-stage">
+          <button class="lightbox-nav lightbox-prev" aria-label="Anterior">‹</button>
+          <div class="lightbox-img-wrap">
+            <img class="lightbox-img" src="" alt="" />
+          </div>
+          <button class="lightbox-nav lightbox-next" aria-label="Seguinte">›</button>
+        </div>
+        <div class="lightbox-caption"></div>
+      </div>
+    `;
+    document.body.appendChild(el);
+
+    const img     = el.querySelector(".lightbox-img");
+    const caption = el.querySelector(".lightbox-caption");
+    const counter = el.querySelector(".lightbox-counter");
+    const prev    = el.querySelector(".lightbox-prev");
+    const next    = el.querySelector(".lightbox-next");
+
+    function refreshLightbox() {
+      const item = lightboxItems[lightboxIndex];
+      img.src     = item.full_url || item.url;
+      img.alt     = mediaCaption(item);
+      caption.textContent = mediaCaption(item);
+      counter.textContent = `${lightboxIndex + 1} / ${lightboxItems.length}`;
+      prev.classList.toggle("nav-invisible", lightboxIndex === 0);
+      next.classList.toggle("nav-invisible", lightboxIndex === lightboxItems.length - 1);
+    }
+
+    prev.addEventListener("click", () => { if (lightboxIndex > 0) { lightboxIndex--; refreshLightbox(); } });
+    next.addEventListener("click", () => { if (lightboxIndex < lightboxItems.length - 1) { lightboxIndex++; refreshLightbox(); } });
+    el.querySelector(".lightbox-close").addEventListener("click", closeLightbox);
+    el.addEventListener("click", (e) => { if (e.target === el) closeLightbox(); });
+
+    el._refresh = refreshLightbox;
+    lightboxEl = el;
+    return el;
+  }
+
+  function openLightbox(index) {
+    lightboxIndex = index;
+    const el = ensureLightbox();
+    el._refresh();
+    el.classList.add("visible");
+  }
+
+  function closeLightbox() {
+    if (lightboxEl) lightboxEl.classList.remove("visible");
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   function updateMedia(media, imagesOnlyMode) {
-    const items = (media || []).filter((m) => m.url);
-    const groups = buildMediaGroups(items);
+    const allItems = (media || []).filter((m) => m.url);
+    const groups = buildMediaGroups(allItems);
+    _lbCounter = 0;
+
+    // Build flat lightbox array (images only, in group order)
+    lightboxItems = [];
+    groups.forEach((g) => g.items.forEach((item) => {
+      if (item.type !== "video") lightboxItems.push(item);
+    }));
+
     contentImages.innerHTML = groups.map(renderMediaGroup).join("");
     bindGroupedMediaControls();
+    bindLightboxTriggers();
 
     if (imagesOnlyMode) {
       contentArea.classList.add("images-only");
@@ -636,7 +748,12 @@
     }
   }
 
+  function bindLightboxTriggers() {
+    // no-op: delegation handled by the single listener set up at init
+  }
+
   function mediaCaption(item) {
+    if (currentLang === "en") return item.caption_en || item.caption || "";
     return item.caption || item.caption_en || "";
   }
 
@@ -664,22 +781,26 @@
     return groups;
   }
 
-  function renderMediaItem(item, active) {
+  function renderMediaItem(item) {
     if (item.type === "video") {
-      return `<video class="media-asset" src="${item.url}" controls preload="metadata"${active ? ' class="active"' : ""}></video>`;
+      return `<video class="media-asset" src="${item.url}" controls preload="metadata"></video>`;
     }
-    return `<img class="media-asset" src="${item.url}" alt="${mediaCaption(item)}"${active ? ' class="active"' : ""}>`;
+    return `<img class="media-asset" src="${item.url}" alt="${mediaCaption(item)}">`;
   }
+
+  // Counter shared across all groups per render pass — gives each image its flat lightbox index
+  let _lbCounter = 0;
 
   function renderMediaGroup(group) {
     if (group.items.length === 1) {
       const item = group.items[0];
+      const lbAttr = item.type !== "video" ? `data-lightbox-index="${_lbCounter++}"` : "";
       return `
         <div class="content-image">
-          <div class="media-frame">
-            ${renderMediaItem(item, false)}
+          <div class="media-frame" ${lbAttr}>
+            ${renderMediaItem(item)}
           </div>
-          <div class="caption">${group.caption}</div>
+          <div class="caption">${mediaCaption(item)}</div>
         </div>
       `;
     }
@@ -690,21 +811,22 @@
           <button class="media-nav prev" aria-label="Imagem anterior">‹</button>
           <div class="media-slides">
             ${group.items
-              .map(
-                (item, index) => `
+              .map((item, index) => {
+                const lbAttr = item.type !== "video" ? `data-lightbox-index="${_lbCounter++}"` : "";
+                return `
                   <div class="media-slide ${index === 0 ? "active" : ""}" data-slide-index="${index}">
-                    <div class="media-frame">
-                      ${renderMediaItem(item, index === 0)}
+                    <div class="media-frame" ${lbAttr}>
+                      ${renderMediaItem(item)}
                     </div>
                   </div>
-                `
-              )
+                `;
+              })
               .join("")}
           </div>
           <div class="media-counter">1/${group.items.length}</div>
           <button class="media-nav next" aria-label="Próxima imagem">›</button>
         </div>
-        <div class="caption">${group.caption}</div>
+        <div class="caption">${mediaCaption(group.items[0])}</div>
       </div>
     `;
   }
@@ -825,7 +947,9 @@
     }
 
     contentArea.classList.remove("project-grid");
-    const html = contentItem.content || "";
+    const html = (currentLang === "en" && contentItem.content_en)
+      ? contentItem.content_en
+      : (contentItem.content || "");
     const itemTitle = sectionLabel(contentItem);
     const fallback = html
       .split("\n")
@@ -1113,7 +1237,10 @@
 
   closeBtn.addEventListener("click", hideContent);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeInteractiveMap();
+    if (event.key === "Escape") {
+      closeLightbox();
+      closeInteractiveMap();
+    }
   });
 
   // Basic kiosk hardening for accidental browser gestures.
@@ -1209,5 +1336,14 @@
   }
 
   buildMenu();
+
+  // Delegated lightbox listener — one handler for all current and future images
+  contentImages.addEventListener("click", (e) => {
+    const img = e.target.closest("[data-lightbox-index]");
+    if (!img) return;
+    const idx = parseInt(img.dataset.lightboxIndex, 10);
+    openLightbox(idx);
+  });
+
   initThree();
 })();

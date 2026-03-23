@@ -208,6 +208,34 @@ class Media(models.Model):
 
 
 
+class SiteSettings(models.Model):
+    """Singleton — stores the app title/subtitle in PT and EN."""
+
+    title_pt    = models.CharField("Título (PT)", max_length=200, default="Bacia Hidrográfica das Furnas")
+    title_en    = models.CharField("Title (EN)",  max_length=200, default="Furnas Watershed")
+    subtitle_pt = models.CharField("Subtítulo (PT)", max_length=200, default="Plano de Ordenamento")
+    subtitle_en = models.CharField("Subtitle (EN)",  max_length=200, default="Land Management Plan")
+
+    class Meta:
+        verbose_name = "Configurações"
+        verbose_name_plural = "Configurações"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass  # prevent accidental deletion
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Configurações do site"
+
+
 class Geopark(models.Model):
     """UNESCO Global Geopark entry for the world-map app."""
 

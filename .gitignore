@@ -12,6 +12,7 @@ ENV/
 # Django local runtime data
 db.sqlite3
 db.sqlite3-journal
+db_backup.sqlite3
 media/
 staticfiles/
 

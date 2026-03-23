@@ -9,7 +9,7 @@ from django.template.response import TemplateResponse
 from urllib.parse import urlencode
 
 from .forms import ContentSectionAdminForm, MapAreaInfoAdminForm
-from .models import Category, ContentSection, Geopark, MapAreaInfo, Media, SubCategory
+from .models import Category, ContentSection, Geopark, MapAreaInfo, Media, SiteSettings, SubCategory
 from .management.commands.import_geoparks import (
     _load_xlsx, _load_csv, _parse_coords, _parse_date,
     _safe_float, _safe_int, HEADER_MAP,
@@ -64,7 +64,7 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("title", "title_en")
     ordering = ("order", "title")
-    exclude = ("slug", "order")
+    exclude = ("slug", "order", "icon")
 
 
 @admin.register(SubCategory)
@@ -270,6 +270,33 @@ class GeoparkAdmin(admin.ModelAdmin):
             "opts": self.model._meta,
         }
         return TemplateResponse(request, "admin/app/geopark/import.html", context)
+
+
+@admin.register(SiteSettings)
+class SiteSettingsAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ("Português", {"fields": ("title_pt", "subtitle_pt")}),
+        ("English",   {"fields": ("title_en", "subtitle_en")}),
+    )
+
+    def has_add_permission(self, request):
+        return not SiteSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom = [
+            path("", self.admin_site.admin_view(self.singleton_redirect), name="app_sitesettings_changelist"),
+        ]
+        return custom + urls
+
+    def singleton_redirect(self, request):
+        from django.http import HttpResponseRedirect
+        obj = SiteSettings.get()
+        return HttpResponseRedirect(f"/admin/app/sitesettings/{obj.pk}/change/")
 
 
 @admin.register(MapAreaInfo)

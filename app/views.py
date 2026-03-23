@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 
-from .models import Category, ContentSection, Geopark
+from .models import Category, ContentSection, Geopark, SiteSettings
 from pathlib import Path
 
 from django.conf import settings
@@ -106,9 +106,14 @@ def interactive_table(request):
     else:
         model_url = ""
 
+    cfg = SiteSettings.get()
     context = {
         "sections": sections,
         "model_url": model_url,
+        "site_title_pt":    cfg.title_pt,
+        "site_title_en":    cfg.title_en,
+        "site_subtitle_pt": cfg.subtitle_pt,
+        "site_subtitle_en": cfg.subtitle_en,
     }
     return render(request, "app/index.html", context)
 
