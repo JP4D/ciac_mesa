@@ -1337,6 +1337,26 @@
 
   buildMenu();
 
+  // ── Inactivity / screensaver timer ────────────────────────────────────────
+  let _idleTimer = null;
+  const _idleMs = ((window.APP_CONFIG && window.APP_CONFIG.screensaverTimeout) || 60) * 1000;
+
+  function returnHome() {
+    if (activeSectionSlug) hideContent();
+    setLang("pt");
+  }
+
+  function resetIdleTimer() {
+    clearTimeout(_idleTimer);
+    _idleTimer = setTimeout(returnHome, _idleMs);
+  }
+
+  ["touchstart", "touchmove", "mousedown", "keydown", "scroll"].forEach((evt) =>
+    document.addEventListener(evt, resetIdleTimer, { passive: true })
+  );
+  resetIdleTimer(); // start countdown on load
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Delegated lightbox listener — one handler for all current and future images
   contentImages.addEventListener("click", (e) => {
     const img = e.target.closest("[data-lightbox-index]");

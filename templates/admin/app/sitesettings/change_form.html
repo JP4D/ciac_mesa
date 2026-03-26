@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+  {{ block.super }}
+  <div class="submit-row" style="margin-top: 8px;">
+    <a href="../actualizar/"
+       class="button"
+       style="background:#c0392b; color:#fff; padding:10px 18px; text-decoration:none; border-radius:4px; font-weight:600; letter-spacing:1px;">
+      Actualizar Mesa
+    </a>
+  </div>
+{% endblock %}

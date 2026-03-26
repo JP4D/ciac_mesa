@@ -110,10 +110,11 @@ def interactive_table(request):
     context = {
         "sections": sections,
         "model_url": model_url,
-        "site_title_pt":    cfg.title_pt,
-        "site_title_en":    cfg.title_en,
-        "site_subtitle_pt": cfg.subtitle_pt,
-        "site_subtitle_en": cfg.subtitle_en,
+        "site_title_pt":       cfg.title_pt,
+        "site_title_en":       cfg.title_en,
+        "site_subtitle_pt":    cfg.subtitle_pt,
+        "site_subtitle_en":    cfg.subtitle_en,
+        "screensaver_timeout": cfg.screensaver_timeout,
     }
     return render(request, "app/index.html", context)
 

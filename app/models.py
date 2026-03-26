@@ -215,6 +215,13 @@ class SiteSettings(models.Model):
     title_en    = models.CharField("Title (EN)",  max_length=200, default="Furnas Watershed")
     subtitle_pt = models.CharField("Subtítulo (PT)", max_length=200, default="Plano de Ordenamento")
     subtitle_en = models.CharField("Subtitle (EN)",  max_length=200, default="Land Management Plan")
+    kiosk_ip    = models.CharField(
+        "IP do Kiosk", max_length=100, blank=True,
+        help_text="Endereço IP do kiosk interativo (ex: 192.168.1.50)"
+    )
+    screensaver_timeout = models.PositiveIntegerField(
+        "Tempo para screensaver (s)", default=60
+    )
 
     class Meta:
         verbose_name = "Configurações"

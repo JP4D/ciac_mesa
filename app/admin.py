@@ -274,9 +274,11 @@ class GeoparkAdmin(admin.ModelAdmin):
 
 @admin.register(SiteSettings)
 class SiteSettingsAdmin(admin.ModelAdmin):
+    change_form_template = "admin/app/sitesettings/change_form.html"
     fieldsets = (
         ("Português", {"fields": ("title_pt", "subtitle_pt")}),
         ("English",   {"fields": ("title_en", "subtitle_en")}),
+        ("Kiosk",     {"fields": ("kiosk_ip", "screensaver_timeout")}),
     )
 
     def has_add_permission(self, request):
@@ -290,6 +292,7 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom = [
             path("", self.admin_site.admin_view(self.singleton_redirect), name="app_sitesettings_changelist"),
+            path("actualizar/", self.admin_site.admin_view(self.actualizar_view), name="app_sitesettings_actualizar"),
         ]
         return custom + urls
 
@@ -297,6 +300,30 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         from django.http import HttpResponseRedirect
         obj = SiteSettings.get()
         return HttpResponseRedirect(f"/admin/app/sitesettings/{obj.pk}/change/")
+
+    def actualizar_view(self, request):
+        import urllib.request, urllib.error
+        from django.contrib import messages
+        from django.http import HttpResponseRedirect
+
+        cfg = SiteSettings.get()
+        if not cfg.kiosk_ip:
+            messages.error(request, "IP do Kiosk não configurado nas Configurações.")
+            return HttpResponseRedirect(f"/admin/app/sitesettings/{cfg.pk}/change/")
+
+        url = f"http://{cfg.kiosk_ip}:8000/update"
+        token = "mfIrqhGKUpY8YU9R9-ZN2-lTKuRv7ft6xNGuZZdTEBc"
+        req = urllib.request.Request(url, method="POST")
+        req.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                messages.success(request, f"Kiosk actualizado com sucesso (HTTP {resp.status}).")
+        except urllib.error.HTTPError as e:
+            messages.error(request, f"Erro ao actualizar o kiosk: HTTP {e.code}.")
+        except Exception as e:
+            messages.error(request, f"Erro ao contactar o kiosk ({cfg.kiosk_ip}): {e}")
+
+        return HttpResponseRedirect(f"/admin/app/sitesettings/{cfg.pk}/change/")
 
 
 @admin.register(MapAreaInfo)
